@@ -1,0 +1,20 @@
+TMessagesProj/.externalNativeBuild/
+.gradle/
+.idea/
+build/
+.cxx/
+obj/
+
+output-metadata.json
+local.properties
+API_KEYS
+
+*.hprof
+*.iml
+*.apk
+*.so
+
+# KotlinGram secrets
+API_KEYS
+*.jks
+*.keystore

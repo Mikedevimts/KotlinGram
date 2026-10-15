@@ -1,0 +1,74 @@
+name: Build KotlinGram
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: "Сборка: arm64 (большинство телефонов), armv7, x64, x86 или afat (все архитектуры)"
+        default: "arm64"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+
+      - name: Install Android SDK components
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-33" \
+            "build-tools;33.0.1" \
+            "build-tools;30.0.3" \
+            "ndk;21.4.7075529" \
+            "cmake;3.10.2.4988404"
+          # dx is needed by the old Telegram build setup
+          for v in 33.0.0 33.0.1; do
+            if [ -d "$ANDROID_HOME/build-tools/$v" ]; then
+              cp "$ANDROID_HOME/build-tools/30.0.3/dx" "$ANDROID_HOME/build-tools/$v/dx" || true
+              cp "$ANDROID_HOME/build-tools/30.0.3/lib/dx.jar" "$ANDROID_HOME/build-tools/$v/lib/dx.jar" || true
+            fi
+          done
+
+      - name: Create API_KEYS and keystore from secrets
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_HASH: ${{ secrets.APP_HASH }}
+          MAPS_V2_API: ${{ secrets.MAPS_V2_API }}
+          STORE_PASSWORD: ${{ secrets.SIGNING_KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          {
+            echo "APP_ID=$APP_ID"
+            echo "APP_HASH=\"$APP_HASH\""
+            echo "MAPS_V2_API=${MAPS_V2_API:-none}"
+            echo "SIGNING_KEY_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "SIGNING_KEY_ALIAS=$KEY_ALIAS"
+            echo "SIGNING_KEY_PASSWORD=$KEY_PASSWORD"
+          } > API_KEYS
+          echo "$KEYSTORE_B64" | base64 -d > TMessagesProj/config/kotlingram.jks
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          TASK="assemble$(echo "${FLAVOR:0:1}" | tr a-z A-Z)${FLAVOR:1}Release"
+          ./gradlew "$TASK" --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KotlinGram-apk
+          path: TMessagesProj/build/outputs/apk/**/*.apk
+          if-no-files-found: error

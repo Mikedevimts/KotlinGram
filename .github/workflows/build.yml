@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
 
       - name: Set up JDK 17
@@ -21,17 +21,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
+      - name: Install Android SDK components
         uses: android-actions/setup-android@v2
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Build APK
-        run: ./gradlew assembleDebug --stacktrace --info
+      - name: Build
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
-          name: KotlinGram-debug-apk
+          name: KotlinGram-debug
           path: TMessagesProj/build/outputs/apk/debug/*.apk

@@ -1,34 +1,68 @@
 name: Build KotlinGram
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+workflow_dispatch:
+push:
+branches: ["main", "master"]
+pull_request:
+branches: ["main", "master"]
+
+permissions:
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-22.04
+timeout-minutes: 120
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+  - name: Set up JDK 17
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: "17"
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
+  - name: Install Android SDK components
+    run: |
+      yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
-      - name: Build
-        run: ./gradlew assembleDebug
+      "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+        "platforms;android-33" \
+        "build-tools;33.0.1" \
+        "build-tools;30.0.3" \
+        "ndk;21.4.7075529" \
+        "cmake;3.10.2.4988404"
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: KotlinGram-debug
-          path: TMessagesProj/build/outputs/apk/debug/*.apk
+      for v in 33.0.1; do
+        if [ -d "$ANDROID_HOME/build-tools/$v" ]; then
+          cp "$ANDROID_HOME/build-tools/30.0.3/dx" "$ANDROID_HOME/build-tools/$v/dx" || true
+          cp "$ANDROID_HOME/build-tools/30.0.3/lib/dx.jar" "$ANDROID_HOME/build-tools/$v/lib/dx.jar" || true
+        fi
+      done
+
+  - name: Verify build configuration
+    run: |
+      test -f API_KEYS || (echo "API_KEYS is missing from repository root" && exit 1)
+      test -f TMessagesProj/config/kotlingram.jks || (echo "Keystore is missing" && exit 1)
+      test -f TMessagesProj/jni/CMakeLists.txt || (echo "CMakeLists.txt is missing" && exit 1)
+
+  - name: Make gradlew executable
+    run: chmod +x gradlew
+
+  - name: Build KotlinGram arm64 Release
+    run: |
+      ./gradlew assembleArm64Release \
+        --no-daemon \
+        --stacktrace \
+        -Dorg.gradle.jvmargs="-Xmx4096m -Xss8m -XX:MaxMetaspaceSize=1024m"
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: KotlinGram-arm64-release
+      path: TMessagesProj/build/outputs/apk/**/*.apk
+      if-no-files-found: error
+      retention-days: 7

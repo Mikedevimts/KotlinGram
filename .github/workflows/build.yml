@@ -1,11 +1,15 @@
 name: Build KotlinGram
 
-on:
-workflow_dispatch:
+'on':
+workflow_dispatch: {}
 push:
-branches: ["main", "master"]
+branches:
+- main
+- master
 pull_request:
-branches: ["main", "master"]
+branches:
+- main
+- master
 
 permissions:
 contents: read
@@ -23,12 +27,11 @@ steps:
     uses: actions/setup-java@v4
     with:
       distribution: temurin
-      java-version: "17"
+      java-version: '17'
 
   - name: Install Android SDK components
     run: |
       yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-
       "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
         "platforms;android-33" \
         "build-tools;33.0.1" \
@@ -36,18 +39,14 @@ steps:
         "ndk;21.4.7075529" \
         "cmake;3.10.2.4988404"
 
-      for v in 33.0.1; do
-        if [ -d "$ANDROID_HOME/build-tools/$v" ]; then
-          cp "$ANDROID_HOME/build-tools/30.0.3/dx" "$ANDROID_HOME/build-tools/$v/dx" || true
-          cp "$ANDROID_HOME/build-tools/30.0.3/lib/dx.jar" "$ANDROID_HOME/build-tools/$v/lib/dx.jar" || true
-        fi
-      done
+      cp "$ANDROID_HOME/build-tools/30.0.3/dx" "$ANDROID_HOME/build-tools/33.0.1/dx" || true
+      cp "$ANDROID_HOME/build-tools/30.0.3/lib/dx.jar" "$ANDROID_HOME/build-tools/33.0.1/lib/dx.jar" || true
 
-  - name: Verify build configuration
+  - name: Verify project files
     run: |
-      test -f API_KEYS || (echo "API_KEYS is missing from repository root" && exit 1)
-      test -f TMessagesProj/config/kotlingram.jks || (echo "Keystore is missing" && exit 1)
-      test -f TMessagesProj/jni/CMakeLists.txt || (echo "CMakeLists.txt is missing" && exit 1)
+      test -f API_KEYS
+      test -f TMessagesProj/config/kotlingram.jks
+      test -f TMessagesProj/jni/CMakeLists.txt
 
   - name: Make gradlew executable
     run: chmod +x gradlew

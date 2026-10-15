@@ -1,18 +1,11 @@
 name: Build KotlinGram
 
-'on':
-workflow_dispatch: {}
+on:
+workflow_dispatch:
 push:
-branches:
-- main
-- master
+branches: [main, master]
 pull_request:
-branches:
-- main
-- master
-
-permissions:
-contents: read
+branches: [main, master]
 
 jobs:
 build:
@@ -53,9 +46,7 @@ steps:
 
   - name: Build KotlinGram arm64 Release
     run: |
-      ./gradlew assembleArm64Release \
-        --no-daemon \
-        --stacktrace \
+      ./gradlew assembleArm64Release --no-daemon --stacktrace \
         -Dorg.gradle.jvmargs="-Xmx4096m -Xss8m -XX:MaxMetaspaceSize=1024m"
 
   - name: Upload APK
